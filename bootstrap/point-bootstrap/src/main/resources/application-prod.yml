@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: point-service
+
+  # ─── DataSource ───────────────────────────────────
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:point_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: point-hikari-pool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 10000
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      keepalive-time: 60000
+
+  # ─── JPA ──────────────────────────────────────────
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate              # DDL 은 직접 관리
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100 # N+1 방지
+        jdbc:
+          batch_size: 50              # 벌크 INSERT 성능
+          order_inserts: true
+          order_updates: true
+        connection:
+          provider_disables_autocommit: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
