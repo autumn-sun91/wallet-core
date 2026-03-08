@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":adapter:wallet-kafka"))
     implementation(project(":adapter:wallet-persistence"))
     implementation(libs.spring.boot.starter)
+    implementation(libs.spring.boot.actuator)
     implementation(libs.jackson.kotlin)
     runtimeOnly(libs.h2)
     testImplementation(libs.spring.boot.test)

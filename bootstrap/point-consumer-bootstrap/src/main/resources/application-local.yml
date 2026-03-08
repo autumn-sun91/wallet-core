@@ -26,3 +26,9 @@ spring:
 kafka:
   topic:
     point-grant: point.grant
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
