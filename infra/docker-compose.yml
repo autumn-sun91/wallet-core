@@ -1,0 +1,239 @@
+services:
+  point-service:
+    image: point-service:latest
+    expose:
+      - "8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_MASTER_HOST: mysql-master
+      DB_SLAVE_1_HOST: mysql-slave-1
+      DB_SLAVE_2_HOST: mysql-slave-2
+      DB_SLAVE_3_HOST: mysql-slave-3
+      DB_NAME: ${POINT_DB_NAME:-point_db}
+      DB_PASS: ${POINT_DB_PASS:-root1234}
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+      mysql-slave-1:
+        condition: service_healthy
+      mysql-slave-2:
+        condition: service_healthy
+      mysql-slave-3:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - wallet-network
+
+  # ─── MySQL Master ───────────────────────────────
+  mysql-master:
+    image: mysql:8.0
+    container_name: wallet-mysql-master
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-root1234}
+      MYSQL_DATABASE: point_db
+    ports:
+      - "3306:3306"
+    tmpfs:
+      - '/var/lib/mysql'
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d
+      - ./mysql/conf/master.cnf:/etc/mysql/conf.d/master.cnf
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost",
+              "-u", "root", "-p${DB_ROOT_PASS:-root1234}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - wallet-network
+  # ─── MySQL Slave 1 ───────────────────────────────
+  mysql-slave-1:
+    image: mysql:8.0
+    container_name: wallet-mysql-slave-1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-root1234}
+      MYSQL_DATABASE: point_db
+    ports:
+      - "3307:3306"
+    tmpfs:
+      - '/var/lib/mysql'
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d
+      - ./mysql/conf/slave-1.cnf:/etc/mysql/conf.d/slave.cnf
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost",
+              "-u", "root", "-p${DB_ROOT_PASS:-root1234}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - wallet-network
+
+  # ─── MySQL Slave 2 ───────────────────────────────
+  mysql-slave-2:
+    image: mysql:8.0
+    container_name: wallet-mysql-slave-2
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-root1234}
+      MYSQL_DATABASE: point_db
+    ports:
+      - "3308:3306"
+    tmpfs:
+      - '/var/lib/mysql'
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d
+      - ./mysql/conf/slave-2.cnf:/etc/mysql/conf.d/slave.cnf
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost",
+              "-u", "root", "-p${DB_ROOT_PASS:-root1234}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - wallet-network
+
+  # ─── MySQL Slave 3 ───────────────────────────────
+  mysql-slave-3:
+    image: mysql:8.0
+    container_name: wallet-mysql-slave-3
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-root1234}
+      MYSQL_DATABASE: point_db
+    ports:
+      - "3309:3306"
+    tmpfs:
+      - '/var/lib/mysql'
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d
+      - ./mysql/conf/slave-3.cnf:/etc/mysql/conf.d/slave.cnf
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost",
+              "-u", "root", "-p${DB_ROOT_PASS:-root1234}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - wallet-network
+
+  mysql-replication-init:
+    image: mysql:8.0
+    container_name: wallet-mysql-replication-init
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+      mysql-slave-1:
+        condition: service_healthy
+      mysql-slave-2:
+        condition: service_healthy
+      mysql-slave-3:
+        condition: service_healthy
+    volumes:
+      - ./mysql/replication-init.sh:/replication-init.sh
+    entrypoint: [ "bash", "/replication-init.sh" ]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-root1234}
+    networks:
+      - wallet-network
+    restart: on-failure
+
+  # ─── Nginx Point ─────────────────────────────────
+  nginx-point:
+    image: nginx:alpine
+    container_name: wallet-nginx-point
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      point-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - wallet-network
+
+
+  # ─── Locust Master ───────────────────────────────
+  locust-master:
+    image: locustio/locust:2.24.0
+    container_name: wallet-locust-master
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./locust:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --master
+      --host http://nginx-point:80
+      --web-port 8089
+    depends_on:
+      nginx-point:
+        condition: service_started
+    networks:
+      - wallet-network
+
+  # ─── Locust Worker 1 ─────────────────────────────
+  locust-worker-1:
+    image: locustio/locust:2.24.0
+    container_name: wallet-locust-worker-1
+    volumes:
+      - ./locust:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --worker
+      --master-host locust-master
+    depends_on:
+      - locust-master
+    networks:
+      - wallet-network
+
+  # ─── Locust Worker 2 ─────────────────────────────
+  locust-worker-2:
+    image: locustio/locust:2.24.0
+    container_name: wallet-locust-worker-2
+    volumes:
+      - ./locust:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --worker
+      --master-host locust-master
+    depends_on:
+      - locust-master
+    networks:
+      - wallet-network
+
+  # ─── Locust Worker 3 ─────────────────────────────
+  locust-worker-3:
+    image: locustio/locust:2.24.0
+    container_name: wallet-locust-worker-3
+    volumes:
+      - ./locust:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --worker
+      --master-host locust-master
+    depends_on:
+      - locust-master
+    networks:
+      - wallet-network
+networks:
+  wallet-network:
+    driver: bridge

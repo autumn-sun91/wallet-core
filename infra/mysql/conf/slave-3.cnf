@@ -1,0 +1,4 @@
+[mysqld]
+server-id           = 4
+relay-log           = relay-bin
+log-slave-updates   = 1

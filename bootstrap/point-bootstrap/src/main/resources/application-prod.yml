@@ -4,18 +4,51 @@ spring:
 
   # ─── DataSource ───────────────────────────────────
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:point_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: ${DB_USER:root}
-    password: ${DB_PASS:root1234}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    hikari:
-      pool-name: point-hikari-pool
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 10000
-      idle-timeout: 30000
-      max-lifetime: 1800000
-      keepalive-time: 60000
+    master:
+      jdbc-url: jdbc:mysql://${DB_MASTER_HOST:mysql-master}:${DB_PORT:3306}/${DB_NAME:point_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      username: ${DB_USER:root}
+      password: ${DB_PASS:root1234}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        pool-name: point-master-pool
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 10000
+        idle-timeout: 30000
+        max-lifetime: 1800000
+        keepalive-time: 60000
+        auto-commit: false
+    slave:
+      slave-1:
+        jdbc-url: jdbc:mysql://${DB_SLAVE_1_HOST:mysql-slave-1}:3306/${DB_NAME:point_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+        username: ${DB_USER:root}
+        password: ${DB_PASS:root1234}
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+          pool-name: point-slave-1-pool
+          maximum-pool-size: 10
+          minimum-idle: 3
+          auto-commit: false
+      slave-2:
+        jdbc-url: jdbc:mysql://${DB_SLAVE_2_HOST:mysql-slave-2}:3306/${DB_NAME:point_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+        username: ${DB_USER:root}
+        password: ${DB_PASS:root1234}
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+          pool-name: point-slave-2-pool
+          maximum-pool-size: 10
+          minimum-idle: 3
+          auto-commit: false
+      slave-3:
+        jdbc-url: jdbc:mysql://${DB_SLAVE_3_HOST:mysql-slave-3}:3306/${DB_NAME:point_db}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+        username: ${DB_USER:root}
+        password: ${DB_PASS:root1234}
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+          pool-name: point-slave-3-pool
+          maximum-pool-size: 10
+          minimum-idle: 3
+          auto-commit: false
 
   # ─── JPA ──────────────────────────────────────────
   jpa:

@@ -24,6 +24,12 @@ tasks.jar {
 jib {
     from {
         image = "eclipse-temurin:21-jre-alpine" // 베이스 이미지
+        platforms {
+            platform {
+                architecture = "arm64"
+                os = "linux"
+            }
+        }
     }
     to {
         image = "point-service"
